@@ -1,18 +1,27 @@
 import { useSimulationStore } from '../simulation/simulationStore';
-import { EMOTION_EMOJI, ACTIVITY_LABELS } from '../simulation/agentData';
+import { EMOTION_EMOJI, ACTIVITY_LABELS, LOCATIONS } from '../simulation/agentData';
+
+const LOCATION_ICONS: Record<string, string> = {
+  office:     '🏢',
+  cafe:       '☕',
+  park:       '🌳',
+  shop:       '🛍',
+  plaza:      '🏛',
+  home_alice: '🏠',
+  home_bob:   '🏠',
+  home_carol: '🏠',
+  home_dave:  '🏠',
+  home_emma:  '🏠',
+  home_frank: '🏠',
+  home_grace: '🏠',
+  home_henry: '🏠',
+  home_iris:  '🏠',
+  home_jack:  '🏠',
+};
 
 export default function AgentsSidebar() {
-  const { agents, selectedAgentId, setSelectedAgent, gameHour, gameMinute, dayCount, speed, setSpeed, isRunning, togglePause } = useSimulationStore();
-
-  const timeStr = `${String(gameHour).padStart(2, '0')}:${String(gameMinute).padStart(2, '0')}`;
+  const { agents, selectedAgentId, setSelectedAgent } = useSimulationStore();
   const agentList = Object.values(agents);
-
-  const getPeriod = (h: number) => {
-    if (h >= 5 && h < 12) return '🌅 Morning';
-    if (h >= 12 && h < 17) return '☀️ Afternoon';
-    if (h >= 17 && h < 20) return '🌆 Evening';
-    return '🌙 Night';
-  };
 
   return (
     <div
@@ -22,7 +31,7 @@ export default function AgentsSidebar() {
         top: 0,
         bottom: 0,
         width: 240,
-        background: 'rgba(10,10,20,0.95)',
+        background: 'rgba(10,10,20,0.97)',
         borderRight: '1px solid #2a2a4a',
         color: '#f0f0f0',
         overflowY: 'auto',
@@ -43,69 +52,9 @@ export default function AgentsSidebar() {
         <div style={{ fontWeight: 800, fontSize: 15, color: '#a0c4ff', letterSpacing: 0.5 }}>
           🏘 Agent Community
         </div>
-        <div style={{ fontSize: 11, color: '#666', marginTop: 2 }}>
+        <div style={{ fontSize: 11, color: '#555', marginTop: 2 }}>
           Autonomous AI Town Simulation
         </div>
-      </div>
-
-      {/* Clock */}
-      <div
-        style={{
-          padding: '10px 14px',
-          borderBottom: '1px solid #1a1a3a',
-          background: '#0d0d22',
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <div style={{ fontSize: 24, fontWeight: 700, color: '#e0e0ff', letterSpacing: 1, lineHeight: 1 }}>
-              {timeStr}
-            </div>
-            <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>
-              {getPeriod(gameHour)} · Day {dayCount}
-            </div>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 11, color: '#666' }}>Speed</div>
-            <div style={{ display: 'flex', gap: 3, marginTop: 3 }}>
-              {[1, 2, 5, 10].map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setSpeed(s)}
-                  style={{
-                    background: speed === s ? '#4466cc' : '#1a1a3a',
-                    border: '1px solid #3a3a6a',
-                    borderRadius: 4,
-                    color: speed === s ? '#fff' : '#888',
-                    fontSize: 10,
-                    padding: '2px 5px',
-                    cursor: 'pointer',
-                    fontWeight: speed === s ? 700 : 400,
-                  }}
-                >
-                  {s}x
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-        <button
-          onClick={togglePause}
-          style={{
-            marginTop: 8,
-            width: '100%',
-            padding: '5px 0',
-            background: isRunning ? '#1a3a1a' : '#3a1a1a',
-            border: `1px solid ${isRunning ? '#2a6a2a' : '#6a2a2a'}`,
-            borderRadius: 6,
-            color: isRunning ? '#6aff6a' : '#ff6a6a',
-            fontSize: 12,
-            cursor: 'pointer',
-            fontWeight: 600,
-          }}
-        >
-          {isRunning ? '⏸ Pause' : '▶ Resume'}
-        </button>
       </div>
 
       {/* Agent List */}
@@ -118,6 +67,13 @@ export default function AgentsSidebar() {
             const def = agent.definition;
             const emoji = EMOTION_EMOJI[agent.emotion];
             const isSelected = selectedAgentId === agent.id;
+            const locationLabel = LOCATIONS[agent.currentLocation]?.label ?? agent.currentLocation;
+            const locIcon = LOCATION_ICONS[agent.currentLocation] ?? '📍';
+            const isMoving = agent.waypointIndex < agent.waypoints.length;
+            const destLabel = isMoving
+              ? LOCATIONS[agent.targetLocation]?.label ?? agent.targetLocation
+              : null;
+
             return (
               <div
                 key={agent.id}
@@ -129,7 +85,7 @@ export default function AgentsSidebar() {
                   padding: '8px 10px',
                   cursor: 'pointer',
                   display: 'flex',
-                  alignItems: 'center',
+                  alignItems: 'flex-start',
                   gap: 8,
                   transition: 'all 0.15s',
                 }}
@@ -145,17 +101,29 @@ export default function AgentsSidebar() {
                     justifyContent: 'center',
                     fontSize: 15,
                     flexShrink: 0,
+                    marginTop: 2,
                   }}
                 >
                   {emoji}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
+                  {/* Name + role */}
                   <div style={{ fontWeight: 600, fontSize: 13, color: isSelected ? def.color : '#ddd', display: 'flex', justifyContent: 'space-between' }}>
                     <span>{def.name}</span>
-                    <span style={{ fontSize: 11, color: '#666', fontWeight: 400 }}>{def.role}</span>
+                    <span style={{ fontSize: 10, color: '#555', fontWeight: 400, marginTop: 1 }}>{def.role}</span>
                   </div>
+                  {/* Activity */}
                   <div style={{ fontSize: 11, color: '#777', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {ACTIVITY_LABELS[agent.currentActivity]}
+                  </div>
+                  {/* Location */}
+                  <div style={{ fontSize: 10, color: '#4a7acc', marginTop: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
+                    <span>{locIcon}</span>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {destLabel
+                        ? `→ ${destLabel}`
+                        : locationLabel}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -164,7 +132,7 @@ export default function AgentsSidebar() {
         </div>
       </div>
 
-      {/* Footer help */}
+      {/* Footer */}
       <div style={{ padding: '8px 14px', borderTop: '1px solid #1a1a3a', fontSize: 10, color: '#444' }}>
         Click an agent to view their full profile
       </div>

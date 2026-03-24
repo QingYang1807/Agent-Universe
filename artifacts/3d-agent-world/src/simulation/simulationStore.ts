@@ -9,6 +9,7 @@ import {
   type LocationKey,
   type ScheduleEntry,
 } from './agentData';
+import { buildPath } from './pathfinding';
 
 export interface ConversationEntry {
   time: string;
@@ -23,6 +24,8 @@ export interface AgentState {
   z: number;
   targetX: number;
   targetZ: number;
+  waypoints: Array<[number, number]>;
+  waypointIndex: number;
   emotion: Emotion;
   currentActivity: Activity;
   currentLocation: LocationKey;
@@ -43,7 +46,6 @@ export interface SimulationState {
   speed: number;
   selectedAgentId: string | null;
   isRunning: boolean;
-  accumulatedTime: number;
   setSelectedAgent: (id: string | null) => void;
   setSpeed: (speed: number) => void;
   togglePause: () => void;
@@ -51,7 +53,7 @@ export interface SimulationState {
 }
 
 const MINUTES_PER_REAL_SECOND = 1; // 1 real second = 1 game minute at speed 1x
-const AGENT_MOVE_SPEED = 6; // units per second
+const AGENT_MOVE_SPEED = 6; // world units per second
 const CONVERSATION_DISTANCE = 2.5;
 const CONVERSATION_DURATION = 6; // seconds
 
@@ -114,13 +116,19 @@ function generateDialogue(a: AgentDefinition, b: AgentDefinition): [string, stri
 function initAgentState(def: AgentDefinition, hour: number): AgentState {
   const entry = getScheduleEntry(def, hour);
   const loc = LOCATIONS[entry.location];
+  const tx = loc.x + (Math.random() - 0.5) * 1.5;
+  const tz = loc.z + (Math.random() - 0.5) * 1.5;
+  const sx = loc.x + (Math.random() - 0.5) * 2;
+  const sz = loc.z + (Math.random() - 0.5) * 2;
   return {
     id: def.id,
     definition: def,
-    x: loc.x + (Math.random() - 0.5) * 2,
-    z: loc.z + (Math.random() - 0.5) * 2,
-    targetX: loc.x,
-    targetZ: loc.z,
+    x: sx,
+    z: sz,
+    targetX: tx,
+    targetZ: tz,
+    waypoints: buildPath(sx, sz, tx, tz),
+    waypointIndex: 0,
     emotion: entry.emotion,
     currentActivity: entry.activity,
     currentLocation: entry.location,
@@ -144,7 +152,6 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
   speed: 1,
   selectedAgentId: null,
   isRunning: true,
-  accumulatedTime: 0,
 
   setSelectedAgent: (id) => set({ selectedAgentId: id }),
   setSpeed: (speed) => set({ speed }),
@@ -166,31 +173,43 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
 
     const agentsCopy = { ...state.agents };
 
-    // Update each agent
     for (const agentId of Object.keys(agentsCopy)) {
       const agent = { ...agentsCopy[agentId] };
       const def = agent.definition;
 
-      // Update schedule
+      // Update schedule — when destination changes, build new road-following path
       const entry = getScheduleEntry(def, newHour);
       if (entry.location !== agent.targetLocation) {
-        agent.targetLocation = entry.location;
         const loc = LOCATIONS[entry.location];
-        agent.targetX = loc.x + (Math.random() - 0.5) * 1.5;
-        agent.targetZ = loc.z + (Math.random() - 0.5) * 1.5;
+        const tx = loc.x + (Math.random() - 0.5) * 1.5;
+        const tz = loc.z + (Math.random() - 0.5) * 1.5;
+        agent.targetLocation = entry.location;
+        agent.targetX = tx;
+        agent.targetZ = tz;
+        agent.waypoints = buildPath(agent.x, agent.z, tx, tz);
+        agent.waypointIndex = 0;
       }
       agent.currentActivity = entry.activity;
       agent.emotion = entry.emotion;
 
-      // Move toward target
-      const dx = agent.targetX - agent.x;
-      const dz = agent.targetZ - agent.z;
-      const dist = Math.sqrt(dx * dx + dz * dz);
-      if (dist > 0.15) {
-        const step = Math.min(AGENT_MOVE_SPEED * effectiveDelta, dist);
-        agent.x += (dx / dist) * step;
-        agent.z += (dz / dist) * step;
+      // Move toward the current waypoint along the road graph
+      if (agent.waypointIndex < agent.waypoints.length) {
+        const [wpX, wpZ] = agent.waypoints[agent.waypointIndex];
+        const dx = wpX - agent.x;
+        const dz = wpZ - agent.z;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+        const WAYPOINT_ARRIVAL = 0.4;
+
+        if (dist < WAYPOINT_ARRIVAL) {
+          // Arrived at this waypoint — advance to next
+          agent.waypointIndex += 1;
+        } else {
+          const step = Math.min(AGENT_MOVE_SPEED * effectiveDelta, dist);
+          agent.x += (dx / dist) * step;
+          agent.z += (dz / dist) * step;
+        }
       } else {
+        // All waypoints consumed — agent has arrived
         agent.currentLocation = agent.targetLocation;
       }
 
@@ -224,9 +243,9 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
 
         const dx = a.x - b.x;
         const dz = a.z - b.z;
-        const dist = Math.sqrt(dx * dx + dz * dz);
+        const nearDist = Math.sqrt(dx * dx + dz * dz);
 
-        if (dist < CONVERSATION_DISTANCE && Math.random() < 0.008 * effectiveDelta * 60) {
+        if (nearDist < CONVERSATION_DISTANCE && Math.random() < 0.008 * effectiveDelta * 60) {
           const [aText, bText] = generateDialogue(a.definition, b.definition);
           const timeStr = `${String(newHour).padStart(2, '0')}:${String(newMinute).padStart(2, '0')}`;
 
