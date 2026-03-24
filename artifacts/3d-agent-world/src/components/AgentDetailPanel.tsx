@@ -1,9 +1,9 @@
 import { X } from 'lucide-react';
 import { useSimulationStore } from '../simulation/simulationStore';
-import { EMOTION_EMOJI, ACTIVITY_LABELS } from '../simulation/agentData';
+import { EMOTION_EMOJI, ACTIVITY_LABELS, LOCATIONS } from '../simulation/agentData';
 
 export default function AgentDetailPanel() {
-  const { agents, selectedAgentId, setSelectedAgent } = useSimulationStore();
+  const { agents, selectedAgentId, setSelectedAgent, gameHour } = useSimulationStore();
 
   if (!selectedAgentId) return null;
   const agent = agents[selectedAgentId];
@@ -11,6 +11,15 @@ export default function AgentDetailPanel() {
 
   const def = agent.definition;
   const emoji = EMOTION_EMOJI[agent.emotion];
+
+  // Derive "current goal" from the active schedule entry
+  const scheduleEntry = def.schedule.find(
+    (s) => gameHour >= s.startHour && gameHour < s.endHour,
+  ) ?? def.schedule[0];
+  const currentGoalLabel = ACTIVITY_LABELS[scheduleEntry.activity];
+  const currentGoalLocation = LOCATIONS[scheduleEntry.location]?.label ?? scheduleEntry.location;
+  const isMoving = agent.waypointIndex < agent.waypoints.length;
+  const destLocationLabel = LOCATIONS[agent.targetLocation]?.label ?? agent.targetLocation;
 
   return (
     <div
@@ -85,14 +94,32 @@ export default function AgentDetailPanel() {
             background: '#1a1a2e',
             borderRadius: 8,
             padding: '10px 12px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 5,
           }}
         >
-          <div style={{ fontSize: 13, color: '#fff', marginBottom: 4 }}>
-            <span style={{ marginRight: 6 }}>{emoji}</span>
-            {ACTIVITY_LABELS[agent.currentActivity]}
+          {/* Current goal (derived from schedule) */}
+          <div style={{ fontSize: 12, color: def.color, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
+            <span>🎯</span>
+            <span>
+              {currentGoalLabel}
+              {currentGoalLocation ? ` @ ${currentGoalLocation}` : ''}
+            </span>
           </div>
-          <div style={{ fontSize: 12, color: '#aaa' }}>
-            📍 {agent.currentLocation.replace(/_/g, ' ').replace('home ', '').replace(/^\w/, c => c.toUpperCase())}
+          {/* Activity */}
+          <div style={{ fontSize: 13, color: '#fff', display: 'flex', alignItems: 'center', gap: 5 }}>
+            <span>{emoji}</span>
+            <span>{ACTIVITY_LABELS[agent.currentActivity]}</span>
+          </div>
+          {/* Location / moving status */}
+          <div style={{ fontSize: 12, color: '#aaa', display: 'flex', alignItems: 'center', gap: 5 }}>
+            <span>📍</span>
+            <span>
+              {isMoving
+                ? `En route → ${destLocationLabel}`
+                : LOCATIONS[agent.currentLocation]?.label ?? agent.currentLocation}
+            </span>
           </div>
         </div>
       </div>
