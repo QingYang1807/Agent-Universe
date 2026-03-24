@@ -163,8 +163,8 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
 
     const effectiveDelta = delta * state.speed;
 
-    // Advance game time
-    const minutesElapsed = effectiveDelta * MINUTES_PER_REAL_SECOND * 60;
+    // Advance game time: at speed 1x, 1 real second = 1 game minute
+    const minutesElapsed = effectiveDelta * MINUTES_PER_REAL_SECOND;
     const totalMinutes = state.gameHour * 60 + state.gameMinute + minutesElapsed;
     const wrappedMinutes = totalMinutes % (24 * 60);
     const newHour = Math.floor(wrappedMinutes / 60);
