@@ -21,7 +21,8 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 ```text
 artifacts-monorepo/
 ├── artifacts/              # Deployable applications
-│   └── api-server/         # Express API server
+│   ├── api-server/         # Express API server
+│   └── 3d-agent-world/     # Multi-Agent 3D Community Simulation (React + Three.js)
 ├── lib/                    # Shared libraries
 │   ├── api-spec/           # OpenAPI spec + Orval codegen config
 │   ├── api-client-react/   # Generated React Query hooks
@@ -90,6 +91,26 @@ Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used b
 ### `lib/api-client-react` (`@workspace/api-client-react`)
 
 Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
+
+### `artifacts/3d-agent-world` (`@workspace/3d-agent-world`)
+
+Multi-Agent 3D Community Simulation — a Stanford Smallville-inspired autonomous AI town. Features:
+- **10 autonomous AI agents**: Teacher, Baker, Doctor, Engineer, Artist, Shop Owner, Student, Chef, Journalist, Retired
+- **Agent system**: Each agent has personality traits, emotions, dialogue styles, daily schedules, goals, and conversation memory
+- **2D canvas renderer**: Fully custom HTML Canvas 2D top-down town map as primary view (WebGL fallback since Replit sandbox doesn't support WebGL)
+- **Town map**: Residential houses, Park, Plaza, Café, Office, Shop, roads, trees, fountain
+- **Simulation engine**: Zustand store with autonomous movement, conversation generation, day/night time advancement
+- **UI**: Left sidebar (all agents, clock, speed 1x/2x/5x/10x, pause), right detail panel (personality, goals, schedule, conversation history), speech bubble overlays
+- **Key files**:
+  - `src/simulation/agentData.ts` — agent definitions (schedules, personalities, emotions, dialogue styles)
+  - `src/simulation/simulationStore.ts` — Zustand store, movement, conversations, time
+  - `src/components/Scene2D.tsx` — 2D canvas renderer (primary view)
+  - `src/components/Scene3D.tsx` — 3D WebGL renderer (inactive in Replit)
+  - `src/components/AgentsSidebar.tsx` — left sidebar UI
+  - `src/components/AgentDetailPanel.tsx` — right detail panel
+  - `src/pages/SimulationPage.tsx` — main simulation page layout
+- Entry: `src/main.tsx`
+- Dev server: `pnpm --filter @workspace/3d-agent-world run dev`
 
 ### `scripts` (`@workspace/scripts`)
 
